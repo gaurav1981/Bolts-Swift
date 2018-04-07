@@ -10,12 +10,10 @@
 import XCTest
 
 extension XCTestCase {
-
     /**
-     Returns current test name or `test` if it's nil.
-     Since Swift 2.2 and 2.1 have different XCTest API - we need to wrap this here.
+     Waits for all test expectations with a default timeout.
      */
-    var currentTestName: String {
-        return name ?? "test"
+    func waitForTestExpectations() {
+        waitForExpectations(timeout: 10, handler: nil)
     }
 }

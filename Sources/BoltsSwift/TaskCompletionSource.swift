@@ -18,11 +18,11 @@ import Foundation
 ///
 ///     func dataFromPath(path: String) -> Task<NSData> {
 ///       let tcs = TaskCompletionSource<NSData>()
-///       dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)) {
+///       DispatchQueue.global(qos: .default).async {
 ///         if let data = NSData(contentsOfFile: path) {
-///           tcs.setResult(data)
+///           tcs.set(result: data)
 ///         } else {
-///           tcs.setError(NSError(domain: "com.example", code: 0, userInfo: nil))
+///           tcs.set(error: NSError(domain: "com.example", code: 0, userInfo: nil))
 ///         }
 ///       }
 ///       return tcs.task
@@ -46,8 +46,10 @@ public class TaskCompletionSource<TResult> {
 
      - parameter result: The task result.
      */
-    public func setResult(result: TResult) {
-        assert(task.trySetState(.Success(result)), "Can not set the result on a completed task.")
+    public func set(result: TResult) {
+        guard task.trySet(state: .success(result)) else {
+            preconditionFailure("Can not set the result on a completed task.")
+        }
     }
 
     /**
@@ -57,8 +59,10 @@ public class TaskCompletionSource<TResult> {
 
      - parameter error: The task error.
      */
-    public func setError(error: ErrorType) {
-        assert(task.trySetState(.Error(error)), "Can not set error on a completed task.")
+    public func set(error: Error) {
+        guard task.trySet(state: .error(error)) else {
+            preconditionFailure("Can not set error on a completed task.")
+        }
     }
 
     /**
@@ -67,7 +71,9 @@ public class TaskCompletionSource<TResult> {
      Throws an exception if the task is already completed.
      */
     public func cancel() {
-        assert(task.trySetState(.Cancelled), "Can not cancel a completed task.")
+        guard task.trySet(state: .cancelled) else {
+            preconditionFailure("Can not cancel a completed task.")
+        }
     }
 
     /**
@@ -76,8 +82,9 @@ public class TaskCompletionSource<TResult> {
      - parameter result: The task result.
      - returns: `true` if the result was set, `false` otherwise.
      */
-    public func trySetResult(result: TResult) -> Bool {
-        return task.trySetState(.Success(result))
+    @discardableResult
+    public func trySet(result: TResult) -> Bool {
+        return task.trySet(state: .success(result))
     }
 
     /**
@@ -86,8 +93,9 @@ public class TaskCompletionSource<TResult> {
      - parameter error: The task error.
      - returns: `true` if the error was set, `false` otherwise.
      */
-    public func trySetError(error: ErrorType) -> Bool {
-        return task.trySetState(.Error(error))
+    @discardableResult
+    public func trySet(error: Error) -> Bool {
+        return task.trySet(state: .error(error))
     }
 
     /**
@@ -95,15 +103,18 @@ public class TaskCompletionSource<TResult> {
 
      - returns: `true` if the task was completed, `false` otherwise.
      */
+    @discardableResult
     public func tryCancel() -> Bool {
-        return task.trySetState(.Cancelled)
+        return task.trySet(state: .cancelled)
     }
 
     //--------------------------------------
     // MARK: - Change Task State (internal)
     //--------------------------------------
 
-    func setState(state: TaskState<TResult>) {
-        assert(task.trySetState(state), "Can not complete a completed task.")
+    func setState(_ state: TaskState<TResult>) {
+        guard task.trySet(state: state) else {
+            preconditionFailure("Can not complete a completed task.")
+        }
     }
 }

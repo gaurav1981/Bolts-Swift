@@ -15,10 +15,10 @@ class TaskTests: XCTestCase {
     // MARK: Initializers
 
     func testWithResult() {
-        let task = Task(currentTestName)
+        let task = Task(name)
 
         XCTAssertNotNil(task.result)
-        XCTAssertEqual(task.result, currentTestName)
+        XCTAssertEqual(task.result, name)
         XCTAssertTrue(task.completed)
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
@@ -34,7 +34,7 @@ class TaskTests: XCTestCase {
         XCTAssertTrue(task.faulted)
         XCTAssertFalse(task.cancelled)
         XCTAssertNotNil(task.error)
-        XCTAssertEqual(task.error as? NSError, error)
+        XCTAssertEqual(task.error as NSError?, error)
     }
 
     func testCancelledTask() {
@@ -50,64 +50,125 @@ class TaskTests: XCTestCase {
     // MARK: Task with Delay
 
     func testWithDelay() {
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task<String>.withDelay(0.01)
         task.continueWith { task in
             expectation.fulfill()
         }
 
         XCTAssertFalse(task.completed)
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     // MARK: Execute
 
     func testExecuteWithClosureReturningNil() {
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task<String> {
             expectation.fulfill()
             return "Hello, World!"
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
         XCTAssertEqual(task.result, "Hello, World!")
     }
 
-    func testExecuteWithClosureReturningValue() {
-        let expectation = expectationWithDescription(currentTestName)
+    func testConstructorWithClosureReturningValue() {
+        let expectation = self.expectation(description: name)
         let task = Task<String> {
             expectation.fulfill()
-            return self.currentTestName
+            return self.name
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
+        XCTAssertNotNil(task.result)
+        XCTAssertEqual(task.result, name)
+    }
+
+    func testExecuteWithClosureReturningValue() {
+        let expectation = self.expectation(description: name)
+        let task = Task<String>.execute {
+            expectation.fulfill()
+            return self.name
+        }
+        waitForTestExpectations()
         XCTAssertNotNil(task.result)
         XCTAssertEqual(task.result, name)
     }
 
     func testExecuteWithClosureReturningTaskWithResult() {
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.executeWithTask { () -> Task<Int> in
             expectation.fulfill()
             return Task(10)
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
         XCTAssertNotNil(task.result)
         XCTAssertEqual(task.result, 10)
     }
 
     func testExecuteWithClosureReturningCancelledTask() {
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task<Void>.executeWithTask { () -> Task<Void> in
             expectation.fulfill()
-            return Task<Void>.cancelledTask()
+            return Task.cancelledTask()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
         XCTAssertTrue(task.cancelled)
+    }
+
+    func textExecuteWithClosureThrowingError() {
+        let expectation = self.expectation(description: name)
+        let task = Task<String>.execute {
+            defer {
+                expectation.fulfill()
+            }
+            throw NSError(domain: "com.bolts", code: 1, userInfo: nil)
+        }
+        waitForTestExpectations()
+        XCTAssertNotNil(task.error)
+    }
+
+    func testExecuteWithClosureThrowingCancelledError() {
+        let expectation = self.expectation(description: name)
+        let task = Task<String>.execute {
+            defer {
+                expectation.fulfill()
+            }
+            throw CancelledError()
+        }
+        waitForTestExpectations()
+        XCTAssertTrue(task.cancelled)
+        XCTAssertNil(task.error)
+    }
+
+    func textExecuteWithTaskClosureThrowingError() {
+        let expectation = self.expectation(description: name)
+        let task = Task<String>.executeWithTask {
+            defer {
+                expectation.fulfill()
+            }
+            throw NSError(domain: "com.bolts", code: 1, userInfo: nil)
+        }
+        waitForTestExpectations()
+        XCTAssertNotNil(task.error)
+    }
+
+    func testExecuteWithTaskClosureThrowingCancelledError() {
+        let expectation = self.expectation(description: name)
+        let task = Task<String>.executeWithTask {
+            defer {
+                expectation.fulfill()
+            }
+            throw CancelledError()
+        }
+        waitForTestExpectations()
+        XCTAssertTrue(task.cancelled)
+        XCTAssertNil(task.error)
     }
 
     // MARK: Continuations
 
     func testContinueWithOnSucessfulTaskByReturningResult() {
-        let expectation = expectationWithDescription("continuationTaskSucceeds")
+        let expectation = self.expectation(description: name)
         let initialTask = Task(1)
 
         let continuationTask = initialTask.continueWith { task -> String? in
@@ -119,12 +180,12 @@ class TaskTests: XCTestCase {
             XCTAssertEqual($0, self.name)
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testContinueWithOnErroredTaskByReturningResult() {
         let error = NSError(domain: "com.bolts", code: 1, userInfo: nil)
-        let expectation = expectationWithDescription("continuationTaskSucceeds")
+        let expectation = self.expectation(description: name)
         let initialTask = Task<Int>(error: error)
 
         let continuationTask = initialTask.continueWith { task -> String? in
@@ -136,11 +197,11 @@ class TaskTests: XCTestCase {
             XCTAssertEqual($0, self.name)
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testContinueWithOnCancelledTaskByReturningResult() {
-        let expectation = expectationWithDescription("continuationTaskSucceeds")
+        let expectation = self.expectation(description: name)
         let initialTask = Task<Int>.cancelledTask()
 
         let continuationTask = initialTask.continueWith { task -> String? in
@@ -152,15 +213,15 @@ class TaskTests: XCTestCase {
             XCTAssertEqual($0, self.name)
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testContinueWithWithExecutor() {
-        let expectation = expectationWithDescription("continuationTaskSucceeds")
+        let expectation = self.expectation(description: name)
         let initialTask = Task<Int>.cancelledTask()
-        let executorExpectation = expectationWithDescription("executor")
+        let executorExpectation = self.expectation(description: "executor")
 
-        let executor = Executor.Closure {
+        let executor = Executor.closure {
             $0()
             executorExpectation.fulfill()
         }
@@ -174,11 +235,11 @@ class TaskTests: XCTestCase {
             XCTAssertEqual($0, self.name)
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testContinueWithByReturningNilResult() {
-        let expectation = expectationWithDescription("continuationTaskSucceeds")
+        let expectation = self.expectation(description: name)
         let initialTask = Task(1)
 
         let continuationTask = initialTask.continueWith { task -> String? in
@@ -190,13 +251,13 @@ class TaskTests: XCTestCase {
             XCTAssertNil($0)
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testContinueWithByReturningTask() {
-        let expectation = expectationWithDescription("continuationTaskSucceeds")
+        let expectation = self.expectation(description: name)
         let firstTask = Task(1)
-        let secondTask = Task(currentTestName)
+        let secondTask = Task(name)
 
         let continuationTask = firstTask.continueWithTask { task -> Task<String> in
             XCTAssertTrue(task === firstTask)
@@ -208,11 +269,11 @@ class TaskTests: XCTestCase {
             XCTAssertEqual($0, self.name)
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testContinueWithByReturningNilTask() {
-        let expectation = expectationWithDescription("continuationTaskCompletes")
+        let expectation = self.expectation(description: name)
         let initialTask = Task(1)
 
         let continuationTask = initialTask.continueWith { task in
@@ -222,11 +283,11 @@ class TaskTests: XCTestCase {
         continuationTask.continueWith { task in
             expectation.fulfill()
         }
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testChainedContinueWithFunctions() {
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         var count = 0
 
         Task<Void>.cancelledTask().continueWith { _ -> String? in
@@ -252,12 +313,12 @@ class TaskTests: XCTestCase {
                 return nil
         }
 
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testChainedContinueWithWithAsyncExecutor() {
-        let expectation = expectationWithDescription(currentTestName)
-        let executor = Executor.Queue(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0))
+        let expectation = self.expectation(description: name)
+        let executor = Executor.queue(DispatchQueue.global(qos: .default))
         var count = 0
 
         Task<Void>.cancelledTask().continueWith(executor) { _ in
@@ -278,17 +339,68 @@ class TaskTests: XCTestCase {
                 expectation.fulfill()
         }
 
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
-    // MARK: WhenAll
+    //--------------------------------------
+    // MARK: - continueOnError
+    //--------------------------------------
+
+    func testContinueOnGenericErrorRecovers() {
+        let error = NSError(domain: "com.bolts", code: 1, userInfo: nil)
+        let expectation = self.expectation(description: name)
+        let initialTask = Task<String?>(error: error)
+
+        let continuationTask = initialTask.continueOnErrorWith { taskError -> String? in
+            XCTAssertEqual(taskError as NSError, error)
+            return self.name
+        }
+        continuationTask.continueOnSuccessWith {
+            XCTAssertEqual($0, self.name)
+            expectation.fulfill()
+        }
+        waitForTestExpectations()
+    }
+
+    func testContinueOnSpecificErrorRecovers() {
+        let error = NSError(domain: "com.bolts", code: 1, userInfo: nil)
+        let expectation = self.expectation(description: name)
+        let initialTask = Task<String?>(error: error)
+
+        let continuationTask = initialTask.continueOnErrorWith { (taskError: NSError) -> String? in
+            XCTAssertEqual(taskError, error)
+            return self.name
+        }
+        continuationTask.continueOnSuccessWith {
+            XCTAssertEqual($0, self.name)
+            expectation.fulfill()
+        }
+        waitForTestExpectations()
+    }
+
+    //--------------------------------------
+    // MARK: - WhenAll
+    //--------------------------------------
+
+    func testWhenAllTasksEmptyArray() {
+        let tasks: [Task<Int>] = []
+
+        let expectation = self.expectation(description: name)
+        Task.whenAll(tasks).continueWith { task in
+            XCTAssertTrue(task.completed)
+            XCTAssertFalse(task.faulted)
+            XCTAssertFalse(task.cancelled)
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: 5.0, handler: nil)
+    }
 
     func testWhenAllTasksSuccess() {
         var tasks = Array<Task<Int>>()
         var count: Int32 = 0
 
         for i in 1...20 {
-            let task = Task<Void>.withDelay(NSTimeInterval(rand() % 10) / 100)
+            let task = Task<Void>.withDelay(0.5)
                 .continueWith(continuation: { task -> Int in
                     OSAtomicIncrement32(&count)
                     return i
@@ -296,7 +408,7 @@ class TaskTests: XCTestCase {
             tasks.append(task)
         }
 
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.whenAll(tasks).continueWith { task in
             XCTAssertEqual(count, Int32(tasks.count))
             XCTAssertTrue(task.completed)
@@ -309,16 +421,16 @@ class TaskTests: XCTestCase {
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
 
-        waitForExpectationsWithTimeout(5.0, handler: nil)
+        waitForExpectations(timeout: 5.0, handler: nil)
     }
 
     func testWhenAllTasksWithResultSuccess() {
         var tasks = Array<Task<Int>>()
         var count: Int32 = 0
-        let executor = Executor.Queue(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0))
+        let executor = Executor.queue(DispatchQueue.global(qos: .default))
 
         for i in 1...20 {
-            let task = Task<Void>.withDelay(NSTimeInterval(rand() % 10) / 100)
+            let task = Task<Void>.withDelay(0.5)
                 .continueWith(executor, continuation: { task -> Int in
                     OSAtomicIncrement32(&count)
                     return i
@@ -326,7 +438,7 @@ class TaskTests: XCTestCase {
             tasks.append(task)
         }
 
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.whenAllResult(tasks).continueWith { task in
             XCTAssertEqual(count, Int32(tasks.count))
             XCTAssertTrue(task.completed)
@@ -340,16 +452,16 @@ class TaskTests: XCTestCase {
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
 
-        waitForExpectationsWithTimeout(5.0, handler: nil)
+        waitForTestExpectations()
     }
 
     func testWhenAllTasksWithCancel() {
         var tasks = Array<Task<Int>>()
         var count: Int32 = 0
-        let executor = Executor.Queue(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0))
+        let executor = Executor.queue(DispatchQueue.global(qos: .default))
 
         for i in 1...20 {
-            let task = Task<Void>.withDelay(NSTimeInterval(rand() % 10) / 100)
+            let task = Task<Void>.withDelay(0.5)
                 .continueWithTask(executor, continuation: { task -> Task<Int> in
                     OSAtomicIncrement32(&count)
                     if i == 20 {
@@ -360,7 +472,7 @@ class TaskTests: XCTestCase {
             tasks.append(task)
         }
 
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.whenAllResult(tasks).continueWith { task in
             XCTAssertEqual(count, Int32(tasks.count))
             XCTAssertTrue(task.completed)
@@ -373,8 +485,42 @@ class TaskTests: XCTestCase {
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
 
-        waitForExpectationsWithTimeout(5.0, handler: nil)
+        waitForTestExpectations()
+    }
 
+    func testWhenAllTasksError() {
+        var tasks: [Task<Void>] = []
+        var count: Int32 = 0
+
+        for i in 1...20 {
+            let task = Task<Void>.withDelay(0.5)
+                .continueWith(continuation: { task in
+                    OSAtomicIncrement32(&count)
+                    throw NSError(domain: "bolts", code: i, userInfo: nil)
+                })
+            tasks.append(task)
+        }
+
+        let expectation = self.expectation(description: name)
+        let task = Task.whenAll(tasks).continueWith { task in
+            XCTAssertEqual(count, Int32(tasks.count))
+            XCTAssertTrue(task.completed)
+            XCTAssertTrue(task.faulted)
+            XCTAssertFalse(task.cancelled)
+            guard let error = task.error as? AggregateError else {
+                XCTFail()
+                expectation.fulfill()
+                return
+            }
+            XCTAssertEqual(error.errors.count, Int(count))
+            expectation.fulfill()
+        }
+
+        XCTAssertFalse(task.completed)
+        XCTAssertFalse(task.faulted)
+        XCTAssertFalse(task.cancelled)
+
+        waitForExpectations(timeout: 5.0, handler: nil)
     }
 
     // MARK: When Any
@@ -382,10 +528,14 @@ class TaskTests: XCTestCase {
     func testWhenAnyTasksSuccess() {
         var tasks = Array<Task<Int>>()
         var count: Int32 = 0
-        let executor = Executor.Queue(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0))
+        let executor = Executor.queue(DispatchQueue.global(qos: .default))
 
+        tasks.append(Task<Void>.withDelay(0.2).continueWith { task in
+            // Use max value of Int32, so we can use the same code across both 32 and 64 bit archs.
+            return Int(arc4random_uniform(UInt32(Int32.max)))
+        })
         for i in 1...20 {
-            let task = Task<Void>.withDelay(NSTimeInterval(rand() % 100) / 100)
+            let task = Task<Void>.withDelay(0.5)
                 .continueWith(executor, continuation: { task -> Int in
                     OSAtomicIncrement32(&count)
                     return i
@@ -393,7 +543,7 @@ class TaskTests: XCTestCase {
             tasks.append(task)
         }
 
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.whenAny(tasks).continueWith { task in
             XCTAssertNotEqual(count, Int32(tasks.count))
             XCTAssertTrue(task.completed)
@@ -406,18 +556,18 @@ class TaskTests: XCTestCase {
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
 
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testWhenAnyTasksWithErrors() {
         var tasks = Array<Task<Void>>()
         var count: Int32 = 0
 
-        let executor = Executor.Queue(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0))
+        let executor = Executor.queue(DispatchQueue.global(qos: .default))
         let error = NSError(domain: "com.bolts", code: 1, userInfo: nil)
 
-        for _ in 1...20 {
-            let task = Task<Void>.withDelay(NSTimeInterval(rand() % 100) / 100)
+        for i in 1...20 {
+            let task = Task<Void>.withDelay(Double(i) * 0.5)
                 .continueWithTask(executor, continuation: { task -> Task<Void> in
                     OSAtomicIncrement32(&count)
                     return Task(error: error)
@@ -425,7 +575,7 @@ class TaskTests: XCTestCase {
             tasks.append(task)
         }
 
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.whenAny(tasks).continueWith { task in
             XCTAssertNotEqual(count, Int32(tasks.count))
             XCTAssertTrue(task.completed)
@@ -438,17 +588,17 @@ class TaskTests: XCTestCase {
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
 
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     func testWhenAnyTasksWithCancel() {
         var tasks = Array<Task<Int>>()
         var count: Int32 = 0
 
-        let executor = Executor.Queue(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0))
+        let executor = Executor.queue(DispatchQueue.global(qos: .default))
 
-        for _ in 1...20 {
-            let task = Task<Void>.withDelay(NSTimeInterval(rand() % 100) / 100)
+        for i in 1...20 {
+            let task = Task<Void>.withDelay(Double(i) * 0.5)
                 .continueWithTask(executor, continuation: { task -> Task<Int> in
                     OSAtomicIncrement32(&count)
                     return Task.cancelledTask()
@@ -456,7 +606,7 @@ class TaskTests: XCTestCase {
             tasks.append(task)
         }
 
-        let expectation = expectationWithDescription(currentTestName)
+        let expectation = self.expectation(description: name)
         let task = Task.whenAny(tasks).continueWith { task in
             XCTAssertNotEqual(count, Int32(tasks.count))
             XCTAssertTrue(task.completed)
@@ -469,7 +619,7 @@ class TaskTests: XCTestCase {
         XCTAssertFalse(task.faulted)
         XCTAssertFalse(task.cancelled)
 
-        waitForExpectationsWithTimeout(0.5, handler: nil)
+        waitForTestExpectations()
     }
 
     // MARK: Wait

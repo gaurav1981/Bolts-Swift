@@ -1,6 +1,7 @@
 # Bolts in Swift
 
 ![Platforms][platforms-svg]
+![Swift Version][swift-version-svg]
 
 [![Podspec][podspec-svg]][podspec-link]
 [![Carthage compatible][carthage-svg]](carthage-link)
@@ -41,15 +42,17 @@ In addition to being able to have different states `completed`/`faulted`/`cancel
  github "BoltsFramework/Bolts-Swift"
  ```
  Run `carthage update`, and you should now have the latest version of Bolts in your Carthage folder.
- 
-- **Pre-built binaries**
-
- Head on over to the [releases][releases] page, and download the latest build.
- And you're off! Take a look at the result of the documentation on this readme and start building.
 
 - **Using Bolts as a sub-project**
 
   You can also include parse as a subproject inside of your application if you'd prefer, although we do not recommend this, as it will increase your indexing time significantly. To do so, just drag and drop the `BoltsSwift.xcodeproj` file into your workspace.
+  
+- **Import Bolts**
+
+  Now that you have the framework linked to your application - add the folowing line in every `.swift` that you want to use Bolts from:
+  ```
+  import BoltsSwift
+  ```
 
 ## Chaining Tasks
 
@@ -91,7 +94,7 @@ fetchProfile(user).continueOnSuccessWithTask { task in
 ## Creating Tasks
 
 To create a task - you would need a `TaskCompletionSource`, which is a consumer end of any `Task`, which gives you an ability to control whether the task is completed/faulted or cancelled.
-After you create a `TaskCompletionSource`, you need to call `setResult()`/`setError()`/`setCancelled` to trigger its continuations and change its state.
+After you create a `TaskCompletionSource`, you need to call `setResult()`/`setError()`/`cancel()` to trigger its continuations and change its state.
 ```swift
 func fetch(object: PFObject) -> Task<PFObject> {
   let taskCompletionSource = TaskCompletionSource<PFObject>()
@@ -101,7 +104,7 @@ func fetch(object: PFObject) -> Task<PFObject> {
     } else if let object = object {
       taskCompletionSource.setResult(object)
     } else {
-      taskCompletionSource.setCancelled()
+      taskCompletionSource.cancel()
     }
   }
   return taskCompletionSource.task
@@ -130,7 +133,7 @@ Both `continueWith()` and `continueWithTask()` functions accept an optional exec
 The default executor will dispatch to global dispatch queue, but you can provide your own executor to schedule work in a specific way.
 For example, if you want to continue with work on the main thread:
 ```swift
-fetch(object).continueWith(Executor.MainThread) { task in 
+fetch(object).continueWith(Executor.mainThread) { task in 
   // This closure will be executor on the main application's thread
 }
 ```
@@ -158,3 +161,4 @@ We want to make contributing to this project as easy and transparent as possible
  [carthage-link]: https://github.com/carthage/carthage
 
  [platforms-svg]: http://img.shields.io/cocoapods/p/Bolts-Swift.svg?style=flat
+ [swift-version-svg]: https://img.shields.io/badge/Swift-4.0.x-orange.svg
